@@ -1,6 +1,7 @@
 import * as types from "../types";
 import { BitReader } from "../../binary/bitreader";
 import { BitWriter } from "../../binary/bitwriter";
+import { strict as assert } from "assert";
 
 const difficulties = ["normal", "nm", "hell"];
 
@@ -30,6 +31,7 @@ export function readHeader(char: types.ID2S, reader: BitReader, constants: types
   char.header.left_swap_skill = constants.skills[reader.ReadUInt32()]?.s; //0x0080
   char.header.right_swap_skill = constants.skills[reader.ReadUInt32()]?.s; //0x0084
   char.header.menu_appearance = _readCharMenuAppearance(reader.ReadArray(32), constants); //0x0088 [char menu appearance]
+  char.header.d2r_menu_appearance = char.header.version >= 0x61 ? Array.from(reader.ReadArrayPos(219, 48)) : []; //0x00e3
   char.header.difficulty = _readDifficulty(reader.ReadArray(3)); //0x00a8
   char.header.map_id = reader.ReadUInt32(); //0x00ab
   reader.SkipBytes(2); //0x00af [unk = 0x0, 0x0]
@@ -55,6 +57,8 @@ export function readHeader(char: types.ID2S, reader: BitReader, constants: types
 }
 
 export function writeHeader(char: types.ID2S, writer: BitWriter, constants: types.IConstantData) {
+  const kHeaderOffset = 8; // After signature + version
+
   writer
     .WriteUInt32(0x0) //0x0008 (filesize. needs to be writen after all data)
     .WriteUInt32(0x0); //0x000c (checksum. needs to be calculated after all data writer)
@@ -102,6 +106,7 @@ export function writeHeader(char: types.ID2S, writer: BitWriter, constants: type
       .WriteArray(new Uint8Array(140)) //0x00bf [unk]
       .WriteUInt32(0x1); //0x014b [unk = 0x1, 0x0, 0x0, 0x0]
   }
+  if (char.header.version >= 0x61) writer.WriteArrayPos(219 - kHeaderOffset, Uint8Array.from(char.header.d2r_menu_appearance)); //0x00e3
 
   writer
     .WriteString("Woo!", 4) //0x014f [quests = 0x57, 0x6f, 0x6f, 0x21 "Woo!"]

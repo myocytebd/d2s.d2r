@@ -125,4 +125,9 @@ export class BitWriter {
     }
     return buffer;
   }
+
+  public WriteArrayPos(offset: number, bytes: Uint8Array, numberOfBits: number = bytes.length * 8): BitWriter {
+    let pos = this.offset;
+    return this.SeekByte(offset).WriteBytes(bytes, numberOfBits).SeekBit(pos);
+  }
 }

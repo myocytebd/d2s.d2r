@@ -110,4 +110,11 @@ export class BitReader {
     this.offset = (this.offset + 7) & ~7;
     return this;
   }
+
+  public ReadArrayPos(offset: number, bytes: number): Uint8Array {
+    let pos = this.offset;
+    let rv = this.SeekByte(offset).ReadBytes(bytes);
+    this.SeekBit(pos);
+    return rv;
+  }
 }

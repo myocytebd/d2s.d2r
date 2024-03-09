@@ -263,6 +263,7 @@ export interface IHeader {
   created: number;
   last_played: number;
   menu_appearance: ICharMenuAppearance;
+  d2r_menu_appearance: number[];
   left_skill: string;
   right_skill: string;
   left_swap_skill: string;
