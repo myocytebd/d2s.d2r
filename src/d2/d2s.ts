@@ -1,5 +1,5 @@
 import * as types from "./types";
-import { readHeader, readHeaderData, writeHeader, writeHeaderData, fixHeader } from "./header";
+import { readHeader, readHeaderData, writeHeader, writeHeaderData, fixHeader, readPageHeader, writePageHeader, fixPageHeader } from "./header";
 import { readAttributes, writeAttributes } from "./attributes";
 import { BitReader } from "../binary/bitreader";
 import { BitWriter } from "../binary/bitwriter";
@@ -7,6 +7,7 @@ import { readSkills, writeSkills } from "./skills";
 import * as items from "./items";
 import { getConstantData } from "./constants";
 import { enhanceAttributes, enhanceItems } from "./attribute_enhancer";
+import { strict as assert } from "assert";
 
 const defaultConfig = {
   extendedStash: false,
@@ -18,7 +19,7 @@ function reader(buffer: Uint8Array) {
 }
 
 async function read(buffer: Uint8Array, constants?: types.IConstantData, userConfig?: types.IConfig): Promise<types.ID2S> {
-  const char = {} as types.ID2S;
+  const char = { type: 'd2s' } as types.ID2S;
   const reader = new BitReader(buffer);
   const config = Object.assign(defaultConfig, userConfig);
   await readHeader(char, reader);
@@ -37,6 +38,24 @@ async function read(buffer: Uint8Array, constants?: types.IConstantData, userCon
   }
   await enhanceAttributes(char, constants, config);
   return char;
+}
+
+async function readss(buffer: Uint8Array, constants?: types.IConstantData, userConfig?: types.IConfig): Promise<types.ID2I> {
+  const stash = { type: 'd2i', pages: [] } as types.ID2I;
+  const reader = new BitReader(buffer);
+  const config = Object.assign(defaultConfig, userConfig);
+  let pageOffset = reader.offset;
+  while (!reader.TestEOS()) {
+    if (stash.pages.length > 0 && pageOffset + stash.pages.at(-1)!.header.size * 8 !== reader.offset)
+        throw new Error(`D2I stash page size mismatch: ${pageOffset}b + ${stash.pages.at(-1)!.header.size}B vs ${reader.offset}b`);
+    pageOffset = reader.offset;
+    const page = {} as types.ID2IPage;
+    readPageHeader(page, reader);
+    if (!constants) constants = getConstantData(page.header.version);
+    stash.pages.push(page);
+    page.items = await items.readItems(reader, page.header.version, constants, config);
+  }
+  return stash;
 }
 
 async function readItem(
@@ -59,7 +78,9 @@ function writer(buffer: Uint8Array) {
   return new BitWriter();
 }
 
-async function write(data: types.ID2S, constants?: types.IConstantData, userConfig?: types.IConfig): Promise<Uint8Array> {
+async function write(varData: types.ID2S|types.ID2I, constants?: types.IConstantData, userConfig?: types.IConfig): Promise<Uint8Array> {
+  if (varData.type === 'd2i' || varData.type === undefined) return writess(<types.ID2I>varData, constants, userConfig);
+  const data = varData as types.ID2S;
   const config = Object.assign(defaultConfig, userConfig);
   const writer = new BitWriter();
   writer.WriteArray(await writeHeader(data));
@@ -79,6 +100,20 @@ async function write(data: types.ID2S, constants?: types.IConstantData, userConf
   return writer.ToArray();
 }
 
+async function writess(stash: types.ID2I, constants?: types.IConstantData, userConfig?: types.IConfig): Promise<Uint8Array> {
+  assert.strictEqual(stash.type, 'd2i');
+  const config = Object.assign(defaultConfig, userConfig);
+  if (!constants) constants = getConstantData(stash.pages[0].header.version);
+  const writer = new BitWriter();
+  for (let page of stash.pages) {
+    let pageOffset = writer.offset;
+    writer.WriteArray(writePageHeader(page, constants));
+    writer.WriteArray(await items.writeItems(page.items, page.header.version, constants, config));
+    fixPageHeader(writer, pageOffset);
+  }
+  return writer.ToArray();
+}
+
 async function writeItem(
   item: types.IItem,
   version: number,
@@ -94,4 +129,4 @@ async function writeItem(
   return writer.ToArray();
 }
 
-export { reader, writer, read, write, readItem, writeItem };
+export { reader, writer, read, write, readItem, writeItem, readss, writess, };

@@ -18,6 +18,8 @@ export class BitReader {
     }, 0);
   }
 
+  public TestEOS():boolean { return this.bits.length === this.offset; }
+
   public ReadBit(): number {
     return this.bits[this.offset++];
   }

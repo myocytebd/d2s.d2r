@@ -22,6 +22,7 @@ export interface IConstantData {
 }
 
 export interface ID2S {
+  type: string;
   header: IHeader;
   attributes: IAttributes;
   item_bonuses: IMagicProperty[];
@@ -31,6 +32,26 @@ export interface ID2S {
   merc_items: IItem[];
   golem_item: IItem;
   is_dead: number;
+}
+
+// Shared Stash format from D2CE
+export interface IPageHeader {
+  identifier: string;   // +00  u8[4]   { 0x55, 0xAA, 0x55, 0xAA }
+  unk_04: number,       // +04  u32     0x1 for 1.6.77312 (version=99)
+  version: number;      // +08  u32     97 or higher valid
+  gold: number;         // +0C  u32
+  size: number;         // +10  u32     lengh of the page including the header
+  //                       +14  u8[44]  unknown.all 0x00
+}
+
+export interface ID2I {
+  type: string;
+  pages: ID2IPage[];    // 3-7 pages?
+}
+
+export interface ID2IPage {
+  header: IPageHeader;
+  items: IItem[]; //Item
 }
 
 export interface IAttributes {
