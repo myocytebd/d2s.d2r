@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
+    "ignoreDeprecations": "5.0",
     "suppressImplicitAnyIndexErrors": true,
-    "target": "es5",
+    "target": "ES2022",
     "module": "commonjs",
     "declaration": true,
     "sourceMap": true,
