@@ -4,7 +4,6 @@ import { BitWriter } from "../binary/bitwriter";
 
 export async function readSkills(char: types.ID2S, reader: BitReader, constants: types.IConstantData) {
   char.skills = [] as types.ISkill[];
-  const offset = SkillOffset[<string>char.header.class];
   const header = reader.ReadString(2); //0x0000 [skills header = 0x69, 0x66 "if"]
   if (header !== "if") {
     // header is not present in first save after char is created
@@ -14,12 +13,13 @@ export async function readSkills(char: types.ID2S, reader: BitReader, constants:
 
     throw new Error(`Skills header 'if' not found at position ${reader.offset - 2 * 8}`);
   }
-  for (let i = 0; i < 30; i++) {
-    const id = offset + i;
+  if (constants.class_skills[constants.class_ids[char.header.class]].length !== constants.class_skills_count) throw new Error(`Skills broken due to skills.txt`);
+  for (let i = 0; i < constants.class_skills_count; i++) {
+    const id = i;
     char.skills.push({
       id: id,
       points: reader.ReadUInt8(),
-      name: constants.skills[id].s,
+      name: constants.class_skills[constants.class_ids[char.header.class]][id].s,
     } as types.ISkill);
   }
 }
@@ -28,22 +28,8 @@ export async function writeSkills(char: types.ID2S, constants: types.IConstantDa
   const writer = new BitWriter();
   writer.WriteString("if", 2); //0x0000 [skills header = 0x69, 0x66 "if"]
   //probably array length checking/sorting of skills by id...
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < constants.class_skills_count; i++) {
     writer.WriteUInt8(char.skills[i].points);
   }
   return writer.ToArray();
 }
-
-interface ISkillOffset {
-  [key: string]: number;
-}
-
-const SkillOffset: ISkillOffset = {
-  Amazon: 6,
-  Sorceress: 36,
-  Necromancer: 66,
-  Paladin: 96,
-  Barbarian: 126,
-  Druid: 221,
-  Assassin: 251,
-};

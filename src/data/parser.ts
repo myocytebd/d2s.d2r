@@ -30,8 +30,10 @@ function readConstantData(buffers: any): types.IConstantData {
   }
 
   constants.classes = _readClasses(_getArray(buffers, "CharStats.txt"), _getArray(buffers, "PlayerClass.txt"), strings);
+  constants.class_ids = Object.fromEntries(constants.classes.map(ci => [ ci.n, ci.c ]));
   const skillDescs = _readSkillDesc(_getArray(buffers, "SkillDesc.txt"), strings);
-  constants.skills = _readSkills(_getArray(buffers, "skills.txt"), skillDescs, strings);
+  [ constants.skills, constants.class_skills ] = _readSkills(_getArray(buffers, "skills.txt"), skillDescs, strings);
+  constants.class_skills_count = Math.max(...Object.values(constants.class_skills).map(skills => skills.length));
   constants.rare_names = [null].concat(_readRareNames(_getArray(buffers, "RareSuffix.txt"), 1, strings));
   constants.rare_names = constants.rare_names.concat(
     _readRareNames(_getArray(buffers, "RarePrefix.txt"), constants.rare_names.length, strings)
@@ -192,9 +194,10 @@ function _readSkillDesc(tsv: any, strings: any): any {
   return arr;
 }
 
-function _readSkills(tsv: any, skillDescs: any, strings: any): any[] {
+function _readSkills(tsv: any, skillDescs: any, strings: any): [ any[], types.OMap<any[]> ] {
   const arr = [] as any[];
   const cSkillDesc = tsv.header.indexOf("skilldesc");
+  const classSkills = {} as types.OMap<string[]>;
   let cId = tsv.header.indexOf("Id");
   if (cId < 0) {
     cId = tsv.header.indexOf("*Id");
@@ -208,9 +211,10 @@ function _readSkills(tsv: any, skillDescs: any, strings: any): any[] {
       if (skillDescs[skillDesc]) o.s = skillDescs[skillDesc];
       if (tsv.lines[i][cCharclass]) o.c = tsv.lines[i][cCharclass];
       arr[id] = o;
+      (classSkills[tsv.lines[i][cCharclass]] ??= []).push(o);
     }
   }
-  return arr;
+  return [ arr, classSkills ];
 }
 
 function _readRareNames(tsv: any, idx: number, strings: any): any[] {

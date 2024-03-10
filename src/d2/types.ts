@@ -6,6 +6,7 @@ export interface IConfig {
 
 export interface IConstantData {
   classes: any[];
+  class_ids: OMap<string>;
   skills: any[];
   magic_prefixes: any[];
   magic_suffixes: any[];
@@ -19,6 +20,8 @@ export interface IConstantData {
   runewords: any[];
   set_items: any[];
   unq_items: any[];
+  class_skills_count: number;
+  class_skills: OMap<any[]>;
 }
 
 export interface ID2S {
@@ -457,3 +460,8 @@ export enum EItemQuality {
   exceptional,
   elite,
 }
+
+export interface OMap<T = any> {
+  [ key: string ]: T;
+}
+  
