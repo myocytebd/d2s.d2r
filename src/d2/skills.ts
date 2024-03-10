@@ -15,11 +15,11 @@ export async function readSkills(char: types.ID2S, reader: BitReader, constants:
   }
   if (constants.class_skills[constants.class_ids[char.header.class]].length !== constants.class_skills_count) throw new Error(`Skills broken due to skills.txt`);
   for (let i = 0; i < constants.class_skills_count; i++) {
-    const id = i;
+    const skillInfo = constants.class_skills[constants.class_ids[char.header.class]][i];
     char.skills.push({
-      id: id,
+      id: skillInfo.id,
       points: reader.ReadUInt8(),
-      name: constants.class_skills[constants.class_ids[char.header.class]][id].s,
+      name: skillInfo.s,
     } as types.ISkill);
   }
 }

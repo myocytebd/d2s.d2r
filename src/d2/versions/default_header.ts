@@ -20,7 +20,8 @@ export function readHeader(char: types.ID2S, reader: BitReader, constants: types
   char.header.progression = reader.ReadUInt8(); //0x0025
   char.header.active_arms = reader.ReadUInt16(); //0x0026 [unk = 0x0, 0x0]
   char.header.class = constants.classes[reader.ReadUInt8()]!.n; //0x0028
-  reader.SkipBytes(2); //0x0029 [unk = 0x10, 0x1E]
+  reader.SkipBytes(1); //0x0029 [unk = 0x10]
+  char.header.skills_count = reader.ReadUInt8(); //0x002a
   char.header.level = reader.ReadUInt8(); //0x002b
   char.header.created = reader.ReadUInt32(); //0x002c
   char.header.last_played = reader.ReadUInt32(); //0x0030
@@ -76,7 +77,8 @@ export function writeHeader(char: types.ID2S, writer: BitWriter, constants: type
     .WriteUInt8(char.header.progression) //0x0025
     .WriteUInt16(char.header.active_arms) //0x0026
     .WriteUInt8(_classId(char.header.class, constants)) //0x0028
-    .WriteArray(new Uint8Array([0x10, 0x1e])) //0x0029
+    .WriteUInt8(0x10) //0x0029
+    .WriteUInt8(char.header.skills_count) //0x002a
     .WriteUInt8(char.header.level) //0x002b
     .WriteArray(new Uint8Array([0x00, 0x00, 0x00, 0x00])) //0x002c
     .WriteUInt32(char.header.last_played) //0x0030
@@ -233,9 +235,7 @@ function _readAssignedSkills(bytes: Uint8Array, constants: types.IConstantData):
   for (let i = 0; i < 16; i++) {
     const skillId = reader.ReadUInt32();
     const skill = constants.skills[skillId];
-    if (skill) {
-      skills.push(skill.s);
-    }
+    skills.push(skill?.s ?? null);
   }
   return skills;
 }
@@ -318,7 +318,13 @@ function _readQuests(bytes: Uint8Array): types.IQuests {
   quests.act_v.betrayal_of_harrogath = _readQuest(reader.ReadArray(2));
   quests.act_v.rite_of_passage = _readQuest(reader.ReadArray(2));
   quests.act_v.eve_of_destruction = _readQuest(reader.ReadArray(2));
-  quests.act_v.completed = reader.ReadUInt16() === 0x1;
+  quests.act_v.completed = quests.act_v.eve_of_destruction.is_completed;
+  // (incorrect) D2CE: Set to 1 if you went to Akara to reset your stats already
+  // (D2R) 0x02 when Akara reset is available and unused. (but -enablerespec is used once)
+  quests.unk_52 = reader.ReadUInt8(); //0x0052
+  // (incorrect) D2CE: Seems to be set to 0x80 after completing the Difficulty Level
+  // (D2R) 0x80 before completing Act I.
+  quests.unk_53 = reader.ReadUInt8(); //0x0053
   reader.SkipBytes(12);
   return quests; //sizeof [0x0060]
 }
@@ -366,9 +372,9 @@ function _writeQuests(quests: types.IQuests): Uint8Array {
     .WriteArray(_writeQuest(quests.act_v.betrayal_of_harrogath))
     .WriteArray(_writeQuest(quests.act_v.rite_of_passage))
     .WriteArray(_writeQuest(quests.act_v.eve_of_destruction))
-    .WriteUInt8(difficultyCompleted)
-    .WriteUInt8(difficultyCompleted ? 0x80 : 0x0) //is this right?
-    .WriteArray(new Uint8Array(12))
+    .WriteUInt8(quests.unk_52)
+    .WriteUInt8(quests.unk_53)
+    .WriteArray(new Uint8Array(10))
     .ToArray();
 }
 
@@ -557,11 +563,13 @@ function _readNPCData(bytes: Uint8Array): types.INPCData {
   for (let j = 0; j < 3; j++) {
     npcs[difficulties[j]] = {
       warriv_act_ii: { intro: false, congrats: false },
+      unk_b01: { intro: false, congrats: false },
       charsi: { intro: false, congrats: false },
       warriv_act_i: { intro: false, congrats: false },
       kashya: { intro: false, congrats: false },
       akara: { intro: false, congrats: false },
       gheed: { intro: false, congrats: false },
+      unk_b07: { intro: false, congrats: false },
       greiz: { intro: false, congrats: false },
       jerhyn: { intro: false, congrats: false },
       meshif_act_ii: { intro: false, congrats: false },
@@ -569,16 +577,22 @@ function _readNPCData(bytes: Uint8Array): types.INPCData {
       lysnader: { intro: false, congrats: false },
       fara: { intro: false, congrats: false },
       drogan: { intro: false, congrats: false },
+      unk_b15: { intro: false, congrats: false },
       alkor: { intro: false, congrats: false },
       hratli: { intro: false, congrats: false },
       ashera: { intro: false, congrats: false },
+      unk_b19_2: new Array(2).fill(null).map(_ => ({ intro: false, congrats: false })),
       cain_act_iii: { intro: false, congrats: false },
+      unk_b22: { intro: false, congrats: false },
       elzix: { intro: false, congrats: false },
       malah: { intro: false, congrats: false },
       anya: { intro: false, congrats: false },
+      unk_b26: { intro: false, congrats: false },
       natalya: { intro: false, congrats: false },
       meshif_act_iii: { intro: false, congrats: false },
+      unk_b29_2: new Array(2).fill(null).map(_ => ({ intro: false, congrats: false })),
       ormus: { intro: false, congrats: false },
+      unk_b32_5: new Array(5).fill(null).map(_ => ({ intro: false, congrats: false })),
       cain_act_v: { intro: false, congrats: false },
       qualkehk: { intro: false, congrats: false },
       nihlathak: { intro: false, congrats: false },
@@ -587,13 +601,15 @@ function _readNPCData(bytes: Uint8Array): types.INPCData {
   //introductions
   for (let i = 0; i < 3; i++) {
     const j = i * 5;
-    const npc = npcs[difficulties[i]];
+    const npc = npcs[difficulties[i]] as types.INPCS;
     npc.warriv_act_ii.intro = reader.bits[0 + j * 8] === 1;
+    npc.unk_b01.intro = reader.bits[1 + j * 8] === 1;
     npc.charsi.intro = reader.bits[2 + j * 8] === 1;
     npc.warriv_act_i.intro = reader.bits[3 + j * 8] === 1;
     npc.kashya.intro = reader.bits[4 + j * 8] === 1;
     npc.akara.intro = reader.bits[5 + j * 8] === 1;
     npc.gheed.intro = reader.bits[6 + j * 8] === 1;
+    npc.unk_b07.intro = reader.bits[7 + j * 8] === 1;
     npc.greiz.intro = reader.bits[8 + j * 8] === 1;
     npc.jerhyn.intro = reader.bits[9 + j * 8] === 1;
     npc.meshif_act_ii.intro = reader.bits[10 + j * 8] === 1;
@@ -601,16 +617,22 @@ function _readNPCData(bytes: Uint8Array): types.INPCData {
     npc.lysnader.intro = reader.bits[12 + j * 8] === 1;
     npc.fara.intro = reader.bits[13 + j * 8] === 1;
     npc.drogan.intro = reader.bits[14 + j * 8] === 1;
+    npc.unk_b15.intro = reader.bits[15 + j * 8] === 1;
     npc.alkor.intro = reader.bits[16 + j * 8] === 1;
     npc.hratli.intro = reader.bits[17 + j * 8] === 1;
     npc.ashera.intro = reader.bits[18 + j * 8] === 1;
+    for (let i = 0; i < 2; i++) npc.unk_b19_2[i].intro = reader.bits[19 + i + j * 8] === 1;
     npc.cain_act_iii.intro = reader.bits[21 + j * 8] === 1;
+    npc.unk_b22.intro = reader.bits[22 + j * 8] === 1;
     npc.elzix.intro = reader.bits[23 + j * 8] === 1;
     npc.malah.intro = reader.bits[24 + j * 8] === 1;
     npc.anya.intro = reader.bits[25 + j * 8] === 1;
+    npc.unk_b26.intro = reader.bits[26 + j * 8] === 1;
     npc.natalya.intro = reader.bits[27 + j * 8] === 1;
     npc.meshif_act_iii.intro = reader.bits[28 + j * 8] === 1;
+    for (let i = 0; i < 2; i++) npc.unk_b29_2[i].intro = reader.bits[29 + i + j * 8] === 1;
     npc.ormus.intro = reader.bits[31 + j * 8] === 1;
+    for (let i = 0; i < 5; i++) npc.unk_b32_5[i].intro = reader.bits[32 + i + j * 8] === 1;
     npc.cain_act_v.intro = reader.bits[37 + j * 8] === 1;
     npc.qualkehk.intro = reader.bits[38 + j * 8] === 1;
     npc.nihlathak.intro = reader.bits[39 + j * 8] === 1;
@@ -618,13 +640,15 @@ function _readNPCData(bytes: Uint8Array): types.INPCData {
   //congrats
   for (let i = 0; i < 3; i++) {
     const j = i * 5;
-    const npc = npcs[difficulties[i]];
+    const npc = npcs[difficulties[i]] as types.INPCS;
     npc.warriv_act_ii.congrats = reader.bits[192 + (0 + j * 8)] === 1;
+    npc.unk_b01.congrats = reader.bits[192 + (1 + j * 8)] === 1;
     npc.charsi.congrats = reader.bits[192 + (2 + j * 8)] === 1;
     npc.warriv_act_i.congrats = reader.bits[192 + (3 + j * 8)] === 1;
     npc.kashya.congrats = reader.bits[192 + (4 + j * 8)] === 1;
     npc.akara.congrats = reader.bits[192 + (5 + j * 8)] === 1;
     npc.gheed.congrats = reader.bits[192 + (6 + j * 8)] === 1;
+    npc.unk_b07.congrats = reader.bits[192 + (7 + j * 8)] === 1;
     npc.greiz.congrats = reader.bits[192 + (8 + j * 8)] === 1;
     npc.jerhyn.congrats = reader.bits[192 + (9 + j * 8)] === 1;
     npc.meshif_act_ii.congrats = reader.bits[192 + (10 + j * 8)] === 1;
@@ -632,16 +656,22 @@ function _readNPCData(bytes: Uint8Array): types.INPCData {
     npc.lysnader.congrats = reader.bits[192 + (12 + j * 8)] === 1;
     npc.fara.congrats = reader.bits[192 + (13 + j * 8)] === 1;
     npc.drogan.congrats = reader.bits[192 + (14 + j * 8)] === 1;
+    npc.unk_b15.congrats = reader.bits[192 + (15 + j * 8)] === 1;
     npc.alkor.congrats = reader.bits[192 + (16 + j * 8)] === 1;
     npc.hratli.congrats = reader.bits[192 + (17 + j * 8)] === 1;
     npc.ashera.congrats = reader.bits[192 + (18 + j * 8)] === 1;
+    for (let i = 0; i < 2; i++) npc.unk_b19_2[i].congrats = reader.bits[19 + i + j * 8] === 1;
     npc.cain_act_iii.congrats = reader.bits[192 + (21 + j * 8)] === 1;
+    npc.unk_b22.congrats = reader.bits[192 + (22 + j * 8)] === 1;
     npc.elzix.congrats = reader.bits[192 + (23 + j * 8)] === 1;
     npc.malah.congrats = reader.bits[192 + (24 + j * 8)] === 1;
     npc.anya.congrats = reader.bits[192 + (25 + j * 8)] === 1;
+    npc.unk_b26.congrats = reader.bits[192 + (26 + j * 8)] === 1;
     npc.natalya.congrats = reader.bits[192 + (27 + j * 8)] === 1;
     npc.meshif_act_iii.congrats = reader.bits[192 + (28 + j * 8)] === 1;
+    for (let i = 0; i < 2; i++) npc.unk_b29_2[i].congrats = reader.bits[29 + i + j * 8] === 1;
     npc.ormus.congrats = reader.bits[192 + (31 + j * 8)] === 1;
+    for (let i = 0; i < 5; i++) npc.unk_b32_5[i].congrats = reader.bits[32 + i + j * 8] === 1;
     npc.cain_act_v.congrats = reader.bits[192 + (37 + j * 8)] === 1;
     npc.qualkehk.congrats = reader.bits[192 + (38 + j * 8)] === 1;
     npc.nihlathak.congrats = reader.bits[192 + (39 + j * 8)] === 1;
@@ -654,16 +684,16 @@ function _writeNPCData(npcs: types.INPCData): Uint8Array {
   writer.length = 0x30 * 8;
   if (npcs) {
     for (let j = 0; j < 3; j++) {
-      const npc = npcs[difficulties[j]];
+      const npc = npcs[difficulties[j]] as types.INPCS;
       writer.SeekByte(j * 5);
       writer.WriteBit(+npc.warriv_act_ii.intro);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b01.intro);
       writer.WriteBit(+npc.charsi.intro);
       writer.WriteBit(+npc.warriv_act_i.intro);
       writer.WriteBit(+npc.kashya.intro);
       writer.WriteBit(+npc.akara.intro);
       writer.WriteBit(+npc.gheed.intro);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b07.intro);
       writer.WriteBit(+npc.greiz.intro);
       writer.WriteBit(+npc.jerhyn.intro);
       writer.WriteBit(+npc.meshif_act_ii.intro);
@@ -671,37 +701,37 @@ function _writeNPCData(npcs: types.INPCData): Uint8Array {
       writer.WriteBit(+npc.lysnader.intro);
       writer.WriteBit(+npc.fara.intro);
       writer.WriteBit(+npc.drogan.intro);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b15.intro);
       writer.WriteBit(+npc.alkor.intro);
       writer.WriteBit(+npc.hratli.intro);
       writer.WriteBit(+npc.ashera.intro);
-      writer.WriteBits(new Uint8Array(2).fill(0), 2);
+      for (let i = 0; i < 2; i++) writer.WriteBit(+npc.unk_b19_2[i].intro);
       writer.WriteBit(+npc.cain_act_iii.intro);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b22.intro);
       writer.WriteBit(+npc.elzix.intro);
       writer.WriteBit(+npc.malah.intro);
       writer.WriteBit(+npc.anya.intro);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b26.intro);
       writer.WriteBit(+npc.natalya.intro);
       writer.WriteBit(+npc.meshif_act_iii.intro);
-      writer.WriteBits(new Uint8Array(2).fill(0), 2);
+      for (let i = 0; i < 2; i++) writer.WriteBit(+npc.unk_b29_2[i].intro);
       writer.WriteBit(+npc.ormus.intro);
-      writer.WriteBits(new Uint8Array(5).fill(0), 5);
+      for (let i = 0; i < 5; i++) writer.WriteBit(+npc.unk_b32_5[i].intro);
       writer.WriteBit(+npc.cain_act_v.intro);
       writer.WriteBit(+npc.qualkehk.intro);
       writer.WriteBit(+npc.nihlathak.intro);
     }
     for (let j = 0; j < 3; j++) {
       writer.SeekByte(24 + j * 5);
-      const npc = npcs[difficulties[j]];
+      const npc = npcs[difficulties[j]] as types.INPCS;
       writer.WriteBit(+npc.warriv_act_ii.congrats);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b01.congrats);
       writer.WriteBit(+npc.charsi.congrats);
       writer.WriteBit(+npc.warriv_act_i.congrats);
       writer.WriteBit(+npc.kashya.congrats);
       writer.WriteBit(+npc.akara.congrats);
       writer.WriteBit(+npc.gheed.congrats);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b07.congrats);
       writer.WriteBit(+npc.greiz.congrats);
       writer.WriteBit(+npc.jerhyn.congrats);
       writer.WriteBit(+npc.meshif_act_ii.congrats);
@@ -709,22 +739,22 @@ function _writeNPCData(npcs: types.INPCData): Uint8Array {
       writer.WriteBit(+npc.lysnader.congrats);
       writer.WriteBit(+npc.fara.congrats);
       writer.WriteBit(+npc.drogan.congrats);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b15.congrats);
       writer.WriteBit(+npc.alkor.congrats);
       writer.WriteBit(+npc.hratli.congrats);
       writer.WriteBit(+npc.ashera.congrats);
-      writer.WriteBits(new Uint8Array(2).fill(0), 2);
+      for (let i = 0; i < 2; i++) writer.WriteBit(+npc.unk_b19_2[i].congrats);
       writer.WriteBit(+npc.cain_act_iii.congrats);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b22.congrats);
       writer.WriteBit(+npc.elzix.congrats);
       writer.WriteBit(+npc.malah.congrats);
       writer.WriteBit(+npc.anya.congrats);
-      writer.WriteBit(0);
+      writer.WriteBit(+npc.unk_b26.congrats);
       writer.WriteBit(+npc.natalya.congrats);
       writer.WriteBit(+npc.meshif_act_iii.congrats);
-      writer.WriteBits(new Uint8Array(2).fill(0), 2);
+      for (let i = 0; i < 2; i++) writer.WriteBit(+npc.unk_b29_2[i].congrats);
       writer.WriteBit(+npc.ormus.congrats);
-      writer.WriteBits(new Uint8Array(5).fill(0), 5);
+      for (let i = 0; i < 5; i++) writer.WriteBit(+npc.unk_b32_5[i].congrats);
       writer.WriteBit(+npc.cain_act_v.congrats);
       writer.WriteBit(+npc.qualkehk.congrats);
       writer.WriteBit(+npc.nihlathak.congrats);

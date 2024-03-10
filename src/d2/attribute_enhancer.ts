@@ -71,9 +71,9 @@ export function enhanceItem(item: types.IItem, constants: types.IConstantData, l
     item.type_id = ItemType.Armor;
     if (details.maxac) {
       if (item.ethereal == 0) {
-        item.defense_rating = details.maxac;
+        item.defense_rating = Math.max(item.defense_rating, details.maxac);
       } else if (item.ethereal == 1) {
-        item.defense_rating = Math.floor(details.maxac * 1.5);
+        item.defense_rating = Math.max(item.defense_rating, Math.floor(details.maxac * 1.5));
       }
     }
   } else if (constants.weapon_items[item.type]) {

@@ -3,6 +3,8 @@ export class BitWriter {
   public bits: Uint8Array;
   public offset = 0;
   public length = 0;
+  public trace = false;
+  public traps = [] as number[];
 
   constructor(capacity = 8192) {
     this.bits = new Uint8Array(capacity);
@@ -20,6 +22,12 @@ export class BitWriter {
   }
 
   public WriteBits(bits: Uint8Array, numberOfBits: number): BitWriter {
+    if (this.trace) console.debug(`WriteBits: ${this.offset}-${this.offset + numberOfBits - 1}`);
+    if (this.traps.length > 0) {
+        for (let targetOffset of this.traps){
+            if (this.offset <= targetOffset && targetOffset <= this.offset + numberOfBits - 1) console.error(new Error(`TRAP-${targetOffset}`).stack);
+        }
+    }
     for (let i = 0; i < numberOfBits; i++) {
       this.WriteBit(bits[i]);
     }

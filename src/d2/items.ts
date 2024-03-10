@@ -26,6 +26,8 @@ const HUFFMAN = [[[[["w","u"],[["8",["y",["5",["j",[]]]]],"h"]],["s",[["2","n"],
 // prettier-ignore
 const HUFFMAN_LOOKUP = { "0": { "v": 223, "l": 8 }, "1": { "v": 31, "l": 7 }, "2": { "v": 12, "l": 6 }, "3": { "v": 91, "l": 7 }, "4": { "v": 95, "l": 8 }, "5": { "v": 104, "l": 8 }, "6": { "v": 123, "l": 7 }, "7": { "v": 30, "l": 5 }, "8": { "v": 8, "l": 6 }, "9": { "v": 14, "l": 5 }, " ": { "v": 1, "l": 2 }, "a": { "v": 15, "l": 5 }, "b": { "v": 10, "l": 4 }, "c": { "v": 2, "l": 5 }, "d": { "v": 35, "l": 6 }, "e": { "v": 3, "l": 6 }, "f": { "v": 50, "l": 6 }, "g": { "v": 11, "l": 5 }, "h": { "v": 24, "l": 5 }, "i": { "v": 63, "l": 7 }, "j": { "v": 232, "l": 9 }, "k": { "v": 18, "l": 6 }, "l": { "v": 23, "l": 5 }, "m": { "v": 22, "l": 5 }, "n": { "v": 44, "l": 6 }, "o": { "v": 127, "l": 7 }, "p": { "v": 19, "l": 5 }, "q": { "v": 155, "l": 8 }, "r": { "v": 7, "l": 5 }, "s": { "v": 4, "l": 4 }, "t": { "v": 6, "l": 5 }, "u": { "v": 16, "l": 5 }, "v": { "v": 59, "l": 7 }, "w": { "v": 0, "l": 5 }, "x": { "v": 28, "l": 5 }, "y": { "v": 40, "l": 7 }, "z": { "v": 27, "l": 8 } };
 
+export let debugItem = false;
+
 export async function readCharItems(char: types.ID2S, reader: BitReader, constants: types.IConstantData, config: types.IConfig) {
   char.items = await readItems(reader, char.header.version, constants, config, char);
 }
@@ -142,9 +144,15 @@ export async function readItems(
   const count = reader.ReadUInt16(); //0x0002
 
   for (let i = 0; i < count; i++) {
+    if (debugItem) console.debug(`>>> readItem`, reader.offset / 8);
     items.push(await readItem(reader, version, constants, config));
+    if (debugItem) console.debug(`<<< readItem`, reader.offset / 8, items[i]);
   }
   return items;
+}
+
+declare global {
+    var __writeItemTrap: any;
 }
 
 export async function writeItems(
@@ -156,8 +164,14 @@ export async function writeItems(
   const writer = new BitWriter();
   writer.WriteString("JM", 2);
   writer.WriteUInt16(items.length);
+  let trapRange = [] as number[];
+  globalThis.__writeItemTrap = false;
   for (let i = 0; i < items.length; i++) {
+    if (trapRange.length > 0 && writer.offset / 8 >= trapRange[0] && writer.offset / 8 < trapRange[1]) __writeItemTrap = true;
+    if (debugItem) console.debug(`>>> writeItem`, writer.offset / 8, items[i]);
     writer.WriteArray(await writeItem(items[i], version, constants, config));
+    if (debugItem) console.debug(`<<< writeItem`, writer.offset / 8);
+    __writeItemTrap = false;
   }
   return writer.ToArray();
 }
@@ -349,6 +363,10 @@ export async function writeItem(
   }
 
   const writer = new BitWriter();
+  if (__writeItemTrap) {
+    writer.trace = true;
+    // writer.traps.push(184);
+  }
   if (version <= 0x60) {
     writer.WriteString("JM", 2);
   }

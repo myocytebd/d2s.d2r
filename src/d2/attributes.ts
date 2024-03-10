@@ -48,7 +48,7 @@ export async function readAttributes(char: types.ID2S, reader: BitReader, consta
     char.attributes[Attributes[field.s]] = reader.ReadUInt32(size);
     //current_hp - max_stamina need to be bit shifted
     if (id >= 6 && id <= 11) {
-      char.attributes[Attributes[field.s]] >>>= 8;
+      char.attributes[Attributes[field.s]] /= 256;
     }
     bitoffset += size;
     id = reader.ReadUInt16(9);
@@ -60,6 +60,7 @@ export async function readAttributes(char: types.ID2S, reader: BitReader, consta
 export async function writeAttributes(char: types.ID2S, constants: types.IConstantData): Promise<Uint8Array> {
   const writer = new BitWriter();
   writer.WriteString("gf", 2); //0x0000 [attributes header = 0x67, 0x66 "gf"]
+  // FIXME: obviously wrong to hardcode 16 attributes
   for (let i = 0; i < 16; i++) {
     const property = constants.magical_properties[i];
     if (property === undefined) {
@@ -70,10 +71,12 @@ export async function writeAttributes(char: types.ID2S, constants: types.IConsta
       continue;
     }
     const size = property.cB;
+    //current_hp - max_stamina need to be bit shifted
     if (i >= 6 && i <= 11) {
-      value <<= 8;
+      value = Math.round(value * 256);
     }
     writer.WriteUInt16(i, 9);
+    // FIXME: obviously wrong to assume unsigned
     writer.WriteUInt32(value, size);
   }
   writer.WriteUInt16(0x1ff, 9);

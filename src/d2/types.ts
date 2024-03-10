@@ -98,11 +98,13 @@ export interface INPC {
 
 export interface INPCS {
   warriv_act_ii: INPC;
+  unk_b01: INPC;
   charsi: INPC;
   warriv_act_i: INPC;
   kashya: INPC;
   akara: INPC;
   gheed: INPC;
+  unk_b07: INPC;
   greiz: INPC;
   jerhyn: INPC;
   meshif_act_ii: INPC;
@@ -110,16 +112,22 @@ export interface INPCS {
   lysnader: INPC;
   fara: INPC;
   drogan: INPC;
+  unk_b15: INPC;
   alkor: INPC;
   hratli: INPC;
   ashera: INPC;
+  unk_b19_2: INPC[];
   cain_act_iii: INPC;
+  unk_b22: INPC;
   elzix: INPC;
   malah: INPC;
   anya: INPC;
+  unk_b26: INPC;
   natalya: INPC;
   meshif_act_iii: INPC;
+  unk_b29_2: INPC[];
   ormus: INPC;
+  unk_b32_5: INPC[];
   cain_act_v: INPC;
   qualkehk: INPC;
   nihlathak: INPC;
@@ -256,6 +264,8 @@ export interface IQuests {
   act_iii: IActIIIQuests;
   act_iv: IActIVQuests;
   act_v: IActVQuests;
+  unk_52: number;
+  unk_53: number;
 }
 
 export interface IWaypoints {
@@ -310,6 +320,7 @@ export interface IHeader {
   merc_name_id: number;
   merc_type: number;
   merc_experience: number;
+  skills_count: number;
 }
 
 export interface IStatus {

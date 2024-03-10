@@ -36,7 +36,7 @@ async function read(buffer: Uint8Array, constants?: types.IConstantData, userCon
     await items.readMercItems(char, reader, constants, config);
     await items.readGolemItems(char, reader, constants, config);
   }
-  await enhanceAttributes(char, constants, config);
+  // await enhanceAttributes(char, constants, config);
   return char;
 }
 

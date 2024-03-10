@@ -208,10 +208,11 @@ function _readSkills(tsv: any, skillDescs: any, strings: any): [ any[], types.OM
     const skillDesc = tsv.lines[i][cSkillDesc];
     if (skillDesc) {
       const o = {} as any;
+      o.id = id;
       if (skillDescs[skillDesc]) o.s = skillDescs[skillDesc];
       if (tsv.lines[i][cCharclass]) o.c = tsv.lines[i][cCharclass];
       arr[id] = o;
-      (classSkills[tsv.lines[i][cCharclass]] ??= []).push(o);
+      if (o.c) (classSkills[o.c] ??= []).push(o);
     }
   }
   return [ arr, classSkills ];
