@@ -197,6 +197,7 @@ export async function readItem(
     item.level = reader.ReadUInt8(7);
     item.quality = reader.ReadUInt8(4);
     item.multiple_pictures = reader.ReadBit();
+    item.rare_name = <string><unknown>null;
     if (item.multiple_pictures) {
       item.picture_id = reader.ReadUInt8(3);
     }
@@ -232,7 +233,7 @@ export async function readItem(
       case Quality.Rare:
       case Quality.Crafted:
         item.rare_name_id = reader.ReadUInt8(8);
-        if (item.rare_name_id) item.rare_name = constants.rare_names[item.rare_name_id] ? constants.rare_names[item.rare_name_id].n : null;
+        if (item.rare_name_id) item.rare_name = constants.rare_names[item.rare_name_id]?.n ?? null;
         item.rare_name_id2 = reader.ReadUInt8(8);
         if (item.rare_name_id2)
           item.rare_name2 = constants.rare_names[item.rare_name_id2] ? constants.rare_names[item.rare_name_id2].n : null;
